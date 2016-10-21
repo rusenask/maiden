@@ -1,9 +1,10 @@
 package main
 
 import (
-	"flag"
+	"net"
 	"os"
 
+	"github.com/anacrolix/tagflag"
 	"github.com/rusenask/maiden"
 
 	log "github.com/Sirupsen/logrus"
@@ -18,47 +19,50 @@ const (
 	// EnvDockerRegistryAuth  = "DOCKER_REGISTRY_AUTH"
 )
 
+var flags = struct {
+	Mmap         bool           `help:"memory-map torrent data"`
+	Peers        []*net.TCPAddr `help:"addresses of some starting peers"`
+	Seed         bool           `help:"seed after download is complete"`
+	Share        string         `help:"image ID that should be shared"`
+	Addr         *net.TCPAddr   `help:"network listen addr"`
+	UploadRate   int64          `help:"max piece bytes to send per second"`
+	DownloadRate int64          `help:"max bytes per second down from peers"`
+	// tagflag.StartPos
+	// Share string `help:"image ID that should be shared"`
+}{
+	UploadRate:   -1,
+	DownloadRate: -1,
+}
+
 func main() {
-	dir := flag.String("dir", "", "directory from which to create a torrent file")
-	share := flag.String("share", "", "share selected image to your peers")
-	flag.Parse()
-
-	if *dir != "" {
-		contents, err := maiden.Create(*dir)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error": err,
-			}).Fatal("failed to create data torrent")
-		}
-
-		f, err := os.Create("data.torrent")
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error": err,
-			}).Fatal("failed to create data torrent")
-		}
-		defer f.Close()
-
-		f.Write(contents)
-		log.Infof("torrent for `%s` created", dir)
+	tagflag.Parse(&flags)
+	endpoint := "unix:///var/run/docker.sock"
+	if os.Getenv(EnvDockerEndpoint) != "" {
+		endpoint = os.Getenv(EnvDockerEndpoint)
 	}
 
-	if *share != "" {
-		endpoint := "unix:///var/run/docker.sock"
-		if os.Getenv(EnvDockerEndpoint) != "" {
-			endpoint = os.Getenv(EnvDockerEndpoint)
-		}
-
-		client, err := docker.NewClient(endpoint)
-		// client, err := docker.NewClientFromEnv()
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error": err,
-			}).Fatal("failed to get docker client from env")
-		}
-
-		distributor := maiden.NewDefaultDistributor(client)
-		distributor.ShareImage(*share)
+	client, err := docker.NewClient(endpoint)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err,
+		}).Fatal("failed to get docker client from env")
 	}
 
+	config := &maiden.DHTDistributorConfig{
+		MMap:         true,
+		Peers:        flags.Peers,
+		Addr:         flags.Addr,
+		UploadRate:   flags.UploadRate,
+		DownloadRate: flags.DownloadRate,
+	}
+
+	distributor, err := maiden.NewDHTDistributor(config, client)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error":       err,
+			"listen_addr": config.Addr,
+			"peers":       config.Peers,
+		}).Fatal("failed to create DHT distributor")
+	}
+	distributor.ShareImage(flags.Share)
 }
