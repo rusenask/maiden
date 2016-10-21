@@ -1,7 +1,6 @@
 package maiden
 
 import (
-	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -13,15 +12,16 @@ import (
 )
 
 // ImageDownloadPath - default image download/seed path
-const ImageDownloadPath = "images"
+// const ImageDownloadPath = "images"
+const ImageDownloadPath = ""
 
 // DHTDistributorConfig - distributor config
 type DHTDistributorConfig struct {
-	mMap         bool           // memory-map torrent data
-	peers        []*net.TCPAddr //addresses of some starting peers
-	addr         *net.TCPAddr   // network listen addr
-	uploadRate   int64
-	downloadRate int64
+	MMap         bool           // memory-map torrent data
+	Peers        []*net.TCPAddr //addresses of some starting Peers
+	Addr         *net.TCPAddr   // network listen addr
+	UploadRate   int64
+	DownloadRate int64
 }
 
 // Distributor - placeholder for distributor
@@ -66,6 +66,15 @@ func (d *DefaultDistributor) ShareImage(name string) error {
 		return err
 	}
 
+	tPath := filepath.Join(ImageDownloadPath, getTorrentName(name))
+
+	err = d.addTorrents([]string{tPath})
+	if err != nil {
+		return err
+	}
+
+	d.seed()
+
 	return nil
 }
 
@@ -75,7 +84,7 @@ func (d *DefaultDistributor) createTorrentFile(name string) error {
 		return err
 	}
 
-	f, err := os.Create(filepath.Join(ImageDownloadPath, fmt.Sprintf("image-%s.torrent", name)))
+	f, err := os.Create(filepath.Join(ImageDownloadPath, getTorrentName(name)))
 	if err != nil {
 		return err
 	}
@@ -105,6 +114,6 @@ func (d *DefaultDistributor) getImage(name string) error {
 		Name:         name,
 		OutputStream: f,
 	}
-
+	log.Info("writing image to file")
 	return d.dClient.ExportImage(opts)
 }
