@@ -1,6 +1,7 @@
 package maiden
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"golang.org/x/time/rate"
 	"os"
@@ -19,6 +20,10 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 )
+
+func generateImageName(name string) string {
+	return fmt.Sprintf("%x", sha1.Sum([]byte(name)))
+}
 
 func getTorrentName(name string) string {
 	return fmt.Sprintf("image-%s.torrent", name)
