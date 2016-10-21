@@ -1,6 +1,7 @@
 package maiden
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -52,10 +53,34 @@ func NewDHTDistributor(cfg *DHTDistributorConfig, dClient *docker.Client) (*Defa
 	return dist, nil
 }
 
+// PullImage - pulls image from network and imports it
+func (d *DefaultDistributor) PullImage(name string) error {
+
+	filename := imagePath(generateImageName(name))
+	// opening file
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return fmt.Errorf("image not found")
+	}
+
+	f, err := os.Open(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	err = d.importImage(f)
+	if err != nil {
+		return err
+	}
+
+	// success
+	return nil
+}
+
 // ShareImage - start sharing specified image
 func (d *DefaultDistributor) ShareImage(name string) error {
 	filename := generateImageName(name)
-	err := d.getImage(name, filename)
+	err := d.exportImage(name, filename)
 	if err != nil {
 		return err
 	}
