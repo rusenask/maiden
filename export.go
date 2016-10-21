@@ -2,23 +2,23 @@ package maiden
 
 import (
 	"os"
-	"path/filepath"
+	// "path/filepath"
 
 	docker "github.com/fsouza/go-dockerclient"
 
 	log "github.com/Sirupsen/logrus"
 )
 
-func (d *DefaultDistributor) getImage(image, filename string) error {
+func (d *DefaultDistributor) exportImage(image, filename string) error {
 	// checking whether we have this image
-	path := filepath.Join(ImageDownloadPath, filename)
+	// path := filepath.Join(ImageDownloadPath, filename)
 
 	// TODO: sensible perms?
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		os.MkdirAll(path, os.ModePerm)
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		os.MkdirAll(filename, os.ModePerm)
 	}
 
-	f, err := os.Create(filepath.Join(path, filename))
+	f, err := os.Create(imagePath(filename))
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err,
