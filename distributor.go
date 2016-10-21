@@ -2,15 +2,27 @@ package maiden
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 
+	"github.com/anacrolix/torrent"
 	docker "github.com/fsouza/go-dockerclient"
 
 	log "github.com/Sirupsen/logrus"
 )
 
+// ImageDownloadPath - default image download/seed path
 const ImageDownloadPath = "images"
+
+// DHTDistributorConfig - distributor config
+type DHTDistributorConfig struct {
+	mMap         bool           // memory-map torrent data
+	peers        []*net.TCPAddr //addresses of some starting peers
+	addr         *net.TCPAddr   // network listen addr
+	uploadRate   int64
+	downloadRate int64
+}
 
 // Distributor - placeholder for distributor
 type Distributor interface {
@@ -18,14 +30,31 @@ type Distributor interface {
 	PullImage() error
 }
 
+// DefaultDistributor - default DHT based image distributor
 type DefaultDistributor struct {
-	client *docker.Client
+	cfg *DHTDistributorConfig
+
+	dClient *docker.Client
+	tClinet *torrent.Client
 }
 
-func NewDefaultDistributor(client *docker.Client) *DefaultDistributor {
-	return &DefaultDistributor{client: client}
+// NewDHTDistributor - create new default DHT Distributor
+func NewDHTDistributor(cfg *DHTDistributorConfig, dClient *docker.Client) (*DefaultDistributor, error) {
+	dist := &DefaultDistributor{
+		cfg:     cfg,
+		dClient: dClient,
+	}
+
+	// preparing torrent client
+	tc, err := dist.getTorrentClient()
+	if err != nil {
+		return nil, err
+	}
+	dist.tClinet = tc
+	return dist, nil
 }
 
+// ShareImage - start sharing specified image
 func (d *DefaultDistributor) ShareImage(name string) error {
 	err := d.getImage(name)
 	if err != nil {
@@ -77,5 +106,5 @@ func (d *DefaultDistributor) getImage(name string) error {
 		OutputStream: f,
 	}
 
-	return d.client.ExportImage(opts)
+	return d.dClient.ExportImage(opts)
 }
