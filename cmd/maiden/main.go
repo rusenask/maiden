@@ -20,13 +20,16 @@ const (
 )
 
 var flags = struct {
-	Mmap         bool           `help:"memory-map torrent data"`
-	Peers        []*net.TCPAddr `help:"addresses of some starting peers"`
-	Seed         bool           `help:"seed after download is complete"`
-	Share        string         `help:"image ID that should be shared"`
-	Addr         *net.TCPAddr   `help:"network listen addr"`
-	UploadRate   int64          `help:"max piece bytes to send per second"`
-	DownloadRate int64          `help:"max bytes per second down from peers"`
+	Mmap  bool           `help:"memory-map torrent data"`
+	Peers []*net.TCPAddr `help:"addresses of some starting peers"`
+	Seed  bool           `help:"seed after download is complete"`
+
+	Share string `help:"image name that should be shared"`
+	Pull  string `help:"image name that should be downloaded"`
+
+	Addr         *net.TCPAddr `help:"network listen addr"`
+	UploadRate   int64        `help:"max piece bytes to send per second"`
+	DownloadRate int64        `help:"max bytes per second down from peers"`
 	// tagflag.StartPos
 	// Share string `help:"image ID that should be shared"`
 }{
@@ -64,5 +67,17 @@ func main() {
 			"peers":       config.Peers,
 		}).Fatal("failed to create DHT distributor")
 	}
-	distributor.ShareImage(flags.Share)
+	if flags.Share != "" {
+		err = distributor.ShareImage(flags.Share)
+		if err != nil {
+			log.Error(err)
+		}
+	}
+
+	if flags.Pull != "" {
+		err = distributor.PullImage(flags.Pull)
+		if err != nil {
+			log.Error(err)
+		}
+	}
 }
