@@ -21,6 +21,13 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+// path to the image itself
+func imagePath(filename string) string {
+	return filepath.Join(filename, filename)
+}
+
+// since most of the names are of format `org/name` - there can be problems
+// generating paths
 func generateImageName(name string) string {
 	return fmt.Sprintf("%x", sha1.Sum([]byte(name)))
 }
