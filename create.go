@@ -36,27 +36,14 @@ func Create(dir string) (torrent []byte, err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Println("torrent file:")
-
-	// f, err := os.Create("data.torrent")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// defer f.Close()
 
 	buf := bytes.NewBuffer(nil)
-
-	// err = mi.Write(os.Stdout)
 	err = mi.Write(buf)
 	if err != nil {
 		return
 	}
-
-	fmt.Println("\n--")
 	fmt.Println("infohash:")
 	fmt.Printf("%s\n", mi.HashInfoBytes().HexString())
-
-	fmt.Println("magnet:")
 	fmt.Fprintf(os.Stdout, "%s\n", mi.Magnet(info.Name, mi.HashInfoBytes()).String())
 
 	return buf.Bytes(), nil
