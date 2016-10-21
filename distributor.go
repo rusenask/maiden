@@ -1,7 +1,7 @@
 package maiden
 
 import (
-	// "fmt"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -9,6 +9,8 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 )
+
+const ImageDownloadPath = "images"
 
 // Distributor - placeholder for distributor
 type Distributor interface {
@@ -30,12 +32,39 @@ func (d *DefaultDistributor) ShareImage(name string) error {
 		return err
 	}
 
+	err = d.createTorrentFile(name)
+	if err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func (d *DefaultDistributor) createTorrentFile(name string) error {
+	contents, err := Create(filepath.Join(ImageDownloadPath, name))
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(filepath.Join(ImageDownloadPath, fmt.Sprintf("image-%s.torrent", name)))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write(contents)
+	return err
 }
 
 func (d *DefaultDistributor) getImage(name string) error {
 	// checking whether we have this image
-	f, err := os.Create(filepath.Join("images", name))
+	path := filepath.Join(ImageDownloadPath, name)
+
+	// TODO: sensible perms?
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		os.MkdirAll(path, os.ModePerm)
+	}
+
+	f, err := os.Create(filepath.Join(path, name))
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err,
