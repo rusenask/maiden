@@ -86,6 +86,14 @@ func (d *DefaultDistributor) Serve(ctx context.Context) error {
 
 // Shutdown - cleansup and shuts down torrent server
 func (d *DefaultDistributor) Shutdown() error {
+	// done, unsubscribing
+	d.tClinet.Close()
+
+	return nil
+}
+
+// Cleanup - removes all torrents from active list and cleans up locally downloaded images
+func (d *DefaultDistributor) Cleanup() error {
 	for k := range d.active {
 		err := d.StopSharing(k)
 		if err != nil {
