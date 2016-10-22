@@ -101,7 +101,8 @@ func main() {
 		}
 	}
 
-	if flags.Seed {
+	// if image is being shared - always seed
+	if flags.Seed || flags.Share != "" {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		go distributor.Serve(ctx)
