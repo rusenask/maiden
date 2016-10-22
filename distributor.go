@@ -1,13 +1,17 @@
 package maiden
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/anacrolix/torrent"
 	docker "github.com/fsouza/go-dockerclient"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 // ImageDownloadPath - default image download/seed path
@@ -25,8 +29,12 @@ type DHTDistributorConfig struct {
 
 // Distributor - placeholder for distributor
 type Distributor interface {
-	ShareImage(name string) error
-	PullImage() error
+	Serve(ctx context.Context) error
+
+	ShareImage(name string) (torrent []byte, err error)
+	StopSharing(name string) error
+
+	PullImage(name string) error
 }
 
 // DefaultDistributor - default DHT based image distributor
@@ -35,13 +43,21 @@ type DefaultDistributor struct {
 
 	dClient *docker.Client
 	tClinet *torrent.Client
+
+	mutex  *sync.Mutex
+	active map[string]*torrent.Torrent
 }
 
 // NewDHTDistributor - create new default DHT Distributor
 func NewDHTDistributor(cfg *DHTDistributorConfig, dClient *docker.Client) (*DefaultDistributor, error) {
+	mu := &sync.Mutex{}
+	active := make(map[string]*torrent.Torrent)
+
 	dist := &DefaultDistributor{
 		cfg:     cfg,
 		dClient: dClient,
+		mutex:   mu,
+		active:  active,
 	}
 
 	// preparing torrent client
@@ -51,6 +67,36 @@ func NewDHTDistributor(cfg *DHTDistributorConfig, dClient *docker.Client) (*Defa
 	}
 	dist.tClinet = tc
 	return dist, nil
+}
+
+// Serve - continues serving torrent files
+func (d *DefaultDistributor) Serve(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info("default distributor: stopping...")
+			// cleaning up
+			for k := range d.active {
+				err := d.StopSharing(k)
+				if err != nil {
+					log.WithFields(log.Fields{
+						"error": err,
+						"image": k,
+					}).Error("got error while cleaning up")
+				}
+			}
+
+			// done, unsubscribing
+			d.tClinet.Close()
+			return nil
+		default:
+			if d.tClinet.WaitAll() {
+				log.Print("downloaded ALL the torrents")
+			} else {
+				log.Error("y u no complete torrents?!")
+			}
+		}
+	}
 }
 
 // PullImage - pulls image from network and imports it
@@ -78,41 +124,90 @@ func (d *DefaultDistributor) PullImage(name string) error {
 }
 
 // ShareImage - start sharing specified image
-func (d *DefaultDistributor) ShareImage(name string) error {
+func (d *DefaultDistributor) ShareImage(name string) (torrent []byte, err error) {
 	filename := generateImageName(name)
-	err := d.exportImage(name, filename)
+	err = d.exportImage(name, filename)
 	if err != nil {
-		return err
+		return
 	}
 
-	err = d.createTorrentFile(filename)
+	torrent, err = d.createTorrentFile(filename)
 	if err != nil {
-		return err
+		return
 	}
 
 	// Starting seed
-	tPath := filepath.Join(ImageDownloadPath, getTorrentName(filename))
-	err = d.addTorrents([]string{tPath})
+	tPath := getTorrentName(filename)
+	err = d.addTorrent(name, tPath)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+// StopSharing - stops sharing image, cleans up
+func (d *DefaultDistributor) StopSharing(name string) error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	d.active[name].Drop()
+
+	err := d.cleanup(name)
 	if err != nil {
 		return err
 	}
-
-	d.seed()
 
 	return nil
 }
 
-func (d *DefaultDistributor) createTorrentFile(name string) error {
-	contents, err := Create(filepath.Join(ImageDownloadPath, name))
+func (d *DefaultDistributor) cleanup(name string) error {
+	// removing torrent file
+	filename := generateImageName(name)
+	err := os.Remove(filename)
 	if err != nil {
 		return err
 	}
 
-	f, err := os.Create(filepath.Join(ImageDownloadPath, getTorrentName(name)))
+	return RemoveContents(filename)
+}
+
+// RemoveContents - removes contents from directory
+func RemoveContents(dir string) error {
+	d, err := os.Open(dir)
 	if err != nil {
 		return err
 	}
+	defer d.Close()
+	names, err := d.Readdirnames(-1)
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		err = os.RemoveAll(filepath.Join(dir, name))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *DefaultDistributor) createTorrentFile(name string) (torrent []byte, err error) {
+	contents, err := Create(filepath.Join(ImageDownloadPath, name))
+	if err != nil {
+		return
+	}
+
+	f, err := os.Create(filepath.Join(ImageDownloadPath, getTorrentName(name)))
+	if err != nil {
+		return
+	}
 	defer f.Close()
 	_, err = f.Write(contents)
-	return err
+	if err != nil {
+		return
+	}
+
+	torrent = contents
+
+	return
 }
