@@ -30,6 +30,7 @@ type DHTDistributorConfig struct {
 // Distributor - placeholder for distributor
 type Distributor interface {
 	Serve(ctx context.Context) error
+	Shutdown() error
 
 	ShareImage(name string) (torrent []byte, err error)
 	StopSharing(name string) error
@@ -76,27 +77,28 @@ func (d *DefaultDistributor) Serve(ctx context.Context) error {
 		case <-ctx.Done():
 			log.Info("default distributor: stopping...")
 			// cleaning up
-			for k := range d.active {
-				err := d.StopSharing(k)
-				if err != nil {
-					log.WithFields(log.Fields{
-						"error": err,
-						"image": k,
-					}).Error("got error while cleaning up")
-				}
-			}
-
-			// done, unsubscribing
-			d.tClinet.Close()
+			d.Shutdown()
 			return nil
-		default:
-			if d.tClinet.WaitAll() {
-				log.Print("downloaded ALL the torrents")
-			} else {
-				log.Error("y u no complete torrents?!")
-			}
 		}
 	}
+}
+
+// Shutdown - cleansup and shuts down torrent server
+func (d *DefaultDistributor) Shutdown() error {
+	for k := range d.active {
+		err := d.StopSharing(k)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"error": err,
+				"image": k,
+			}).Error("got error while cleaning up")
+		}
+	}
+
+	// done, unsubscribing
+	d.tClinet.Close()
+
+	return nil
 }
 
 // PullImage - pulls image from network and imports it
@@ -163,12 +165,19 @@ func (d *DefaultDistributor) StopSharing(name string) error {
 func (d *DefaultDistributor) cleanup(name string) error {
 	// removing torrent file
 	filename := generateImageName(name)
-	err := os.Remove(filename)
+
+	err := os.Remove(getTorrentName(filename))
 	if err != nil {
 		return err
 	}
 
-	return RemoveContents(filename)
+	err = RemoveContents(filename)
+	if err != nil {
+		return err
+	}
+
+	// removing directory as well
+	return os.Remove(filename)
 }
 
 // RemoveContents - removes contents from directory
