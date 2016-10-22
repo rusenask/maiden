@@ -4,9 +4,9 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"golang.org/x/time/rate"
-	"os"
+	// "os"
 	// "os/exec"
-	"os/signal"
+	// "os/signal"
 	"path/filepath"
 	"strings"
 	"time"
@@ -62,7 +62,8 @@ func (d *DefaultDistributor) getTorrentClient() (*torrent.Client, error) {
 }
 
 // AddTorrent - adds given torrent for download/seeding
-func (d *DefaultDistributor) addTorrent(arg string) error {
+func (d *DefaultDistributor) addTorrent(name, arg string) error {
+	uiprogress.Start()
 	t, err := func() (*torrent.Torrent, error) {
 		if strings.HasPrefix(arg, "magnet:") {
 			t, err := d.tClinet.AddMagnet(arg)
@@ -104,47 +105,66 @@ func (d *DefaultDistributor) addTorrent(arg string) error {
 	go func() {
 		<-t.GotInfo()
 		t.DownloadAll()
+
+		d.mutex.Lock()
+		d.active[name] = t
+		d.mutex.Unlock()
 	}()
+
+	// if d.tClinet.WaitAll() {
+	// 	log.Print("downloaded ALL the torrents")
+	// } else {
+	// 	log.Error("y u no complete torrents?!")
+	// }
 
 	return nil
 }
 
-func (d *DefaultDistributor) addTorrents(torrents []string) error {
-	// starting progress barr
-	uiprogress.Start()
-	for _, arg := range torrents {
-		err := d.addTorrent(arg)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error":   err,
-				"torrent": arg,
-			}).Error("failed to add torrent")
-		}
-	}
+// func (d *DefaultDistributor) addTorrents(torrents []string) error {
+// 	// starting progress barr
+// 	uiprogress.Start()
+// 	for _, arg := range torrents {
+// 		err := d.addTorrent(arg)
+// 		if err != nil {
+// 			log.WithFields(log.Fields{
+// 				"error":   err,
+// 				"torrent": arg,
+// 			}).Error("failed to add torrent")
+// 		}
+// 	}
 
-	if d.tClinet.WaitAll() {
-		log.Print("downloaded ALL the torrents")
-	} else {
-		log.Error("y u no complete torrents?!")
-	}
+// 	if d.tClinet.WaitAll() {
+// 		log.Print("downloaded ALL the torrents")
+// 	} else {
+// 		log.Error("y u no complete torrents?!")
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
-func (d *DefaultDistributor) seed() {
-	signalChan := make(chan os.Signal, 1)
-	cleanupDone := make(chan bool)
-	signal.Notify(signalChan, os.Interrupt)
-	go func() {
-		for _ = range signalChan {
-			log.Info("\nReceived an interrupt, closing connection...\n\n")
-			d.tClinet.Close()
+// func (d *DefaultDistributor) seed(ctx context.Context) {
+// 	for {
+// 		select {
+// 		case <-ctx.Done():
+// 			log.Info("controller failure monitor quiting...")
+// 			// done, unsubscribing
+// 			d.tClinet.Close()
+// 		}
+// 	}
 
-			cleanupDone <- true
-		}
-	}()
-	<-cleanupDone
-}
+// 	// signalChan := make(chan os.Signal, 1)
+// 	// cleanupDone := make(chan bool)
+// 	// signal.Notify(signalChan, os.Interrupt)
+// 	// go func() {
+// 	// 	for _ = range signalChan {
+// 	// 		log.Info("\nReceived an interrupt, closing connection...\n\n")
+// 	// 		d.tClinet.Close()
+
+// 	// 		cleanupDone <- true
+// 	// 	}
+// 	// }()
+// 	// <-cleanupDone
+// }
 
 func torrentBar(t *torrent.Torrent) {
 	bar := uiprogress.AddBar(1)
