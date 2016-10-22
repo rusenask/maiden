@@ -31,11 +31,12 @@ type DHTDistributorConfig struct {
 type Distributor interface {
 	Serve(ctx context.Context) error
 	Shutdown() error
+	Cleanup() error // deletes all torrents & local data (exported images)
 
 	ShareImage(name string) (torrent []byte, err error)
 	StopSharing(name string) error
 
-	PullImage(name string) error
+	PullImage(name string, torrent []byte) error
 }
 
 // DefaultDistributor - default DHT based image distributor
