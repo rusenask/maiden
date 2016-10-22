@@ -201,18 +201,23 @@ func RemoveContents(dir string) error {
 	return nil
 }
 
-func (d *DefaultDistributor) createTorrentFile(name string) (torrent []byte, err error) {
-	contents, err := Create(filepath.Join(ImageDownloadPath, name))
-	if err != nil {
-		return
-	}
-
-	f, err := os.Create(filepath.Join(ImageDownloadPath, getTorrentName(name)))
+func (d *DefaultDistributor) writeTorrentFile(name string, data []byte) (err error) {
+	f, err := os.Create(getTorrentName(name))
 	if err != nil {
 		return
 	}
 	defer f.Close()
-	_, err = f.Write(contents)
+	_, err = f.Write(data)
+	return
+}
+
+func (d *DefaultDistributor) createTorrentFile(name string) (torrent []byte, err error) {
+	contents, err := Create(name)
+	if err != nil {
+		return
+	}
+
+	err = d.writeTorrentFile(name, contents)
 	if err != nil {
 		return
 	}
