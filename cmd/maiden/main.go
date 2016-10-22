@@ -26,8 +26,12 @@ var flags = struct {
 	Peers []*net.TCPAddr `help:"addresses of some starting peers"`
 	Seed  bool           `help:"seed after download is complete"`
 
+	Clean bool `help:"cleanup after download/upload"`
+
 	Share string `help:"image name that should be shared"`
-	Pull  string `help:"image name that should be downloaded"`
+
+	Pull    string `help:"image name that should be downloaded"`
+	Torrent string `help:"torrent file location"`
 
 	Addr         *net.TCPAddr `help:"network listen addr"`
 	UploadRate   int64        `help:"max piece bytes to send per second"`
