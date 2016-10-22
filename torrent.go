@@ -111,12 +111,11 @@ func (d *DefaultDistributor) addTorrent(name, arg string) error {
 		d.mutex.Unlock()
 	}()
 
-	// if d.tClinet.WaitAll() {
-	// 	log.Print("downloaded ALL the torrents")
-	// } else {
-	// 	log.Error("y u no complete torrents?!")
-	// }
-
+	if d.tClinet.WaitAll() {
+		log.Print("downloaded ALL the torrents")
+	} else {
+		log.Error("y u no complete torrents?!")
+	}
 	return nil
 }
 
