@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"os"
+	"os/signal"
 
 	"github.com/anacrolix/tagflag"
 	"github.com/rusenask/maiden"
@@ -77,7 +78,23 @@ func main() {
 		if flags.Seed {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			distributor.Serve(ctx)
+			go distributor.Serve(ctx)
+
+			signalChan := make(chan os.Signal, 1)
+			cleanupDone := make(chan bool)
+			signal.Notify(signalChan, os.Interrupt)
+			go func() {
+				for _ = range signalChan {
+					log.Info("\nReceived an interrupt, closing connection...\n\n")
+					err := distributor.Shutdown()
+					if err != nil {
+						log.Fatalf("error while shutting down distributor: %s", err)
+					}
+					cleanupDone <- true
+				}
+			}()
+			<-cleanupDone
+
 		}
 	}
 
