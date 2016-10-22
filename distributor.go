@@ -93,20 +93,39 @@ func (d *DefaultDistributor) Shutdown() error {
 				"error": err,
 				"image": k,
 			}).Error("got error while cleaning up")
+			return err
 		}
 	}
-
-	// done, unsubscribing
-	d.tClinet.Close()
-
 	return nil
 }
 
 // PullImage - pulls image from network and imports it
-func (d *DefaultDistributor) PullImage(name string) error {
+func (d *DefaultDistributor) PullImage(name string, torrent []byte) error {
+	// cleanup any existing image with the same name
+	// err := d.StopSharing(name)
+	// if err != nil {
+	// 	return err
+	// }
 
-	filename := imagePath(generateImageName(name))
-	// opening file
+	// generated image name
+	generatedName := generateImageName(name)
+
+	// path to actual image Tar
+	filename := imagePath(generatedName)
+
+	// writing torrent file
+	err := d.writeTorrentFile(generatedName, torrent)
+	if err != nil {
+		return err
+	}
+
+	// downloading image
+	err = d.addTorrent(name, getTorrentName(generatedName))
+	if err != nil {
+		return err
+	}
+
+	// opening image
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		return fmt.Errorf("image not found")
 	}
@@ -117,6 +136,7 @@ func (d *DefaultDistributor) PullImage(name string) error {
 	}
 	defer f.Close()
 
+	// importing image to docker daemon from our tar
 	err = d.importImage(f)
 	if err != nil {
 		return err
@@ -153,7 +173,11 @@ func (d *DefaultDistributor) ShareImage(name string) (torrent []byte, err error)
 func (d *DefaultDistributor) StopSharing(name string) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	d.active[name].Drop()
+
+	t, ok := d.active[name]
+	if ok {
+		t.Drop()
+	}
 
 	err := d.cleanup(name)
 	if err != nil {
