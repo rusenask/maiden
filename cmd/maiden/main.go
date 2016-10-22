@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/signal"
@@ -79,33 +80,53 @@ func main() {
 			log.Error(err)
 		}
 
-		if flags.Seed {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			go distributor.Serve(ctx)
-
-			signalChan := make(chan os.Signal, 1)
-			cleanupDone := make(chan bool)
-			signal.Notify(signalChan, os.Interrupt)
-			go func() {
-				for _ = range signalChan {
-					log.Info("\nReceived an interrupt, closing connection...\n\n")
-					err := distributor.Shutdown()
-					if err != nil {
-						log.Fatalf("error while shutting down distributor: %s", err)
-					}
-					cleanupDone <- true
-				}
-			}()
-			<-cleanupDone
-
-		}
 	}
 
-	if flags.Pull != "" {
-		err = distributor.PullImage(flags.Pull)
+	// pulling some image through torrent
+	if flags.Pull != "" && flags.Torrent != "" {
+		f, err := os.Open(flags.Torrent)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer f.Close()
+
+		torrent, err := ioutil.ReadAll(f)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		err = distributor.PullImage(flags.Pull, torrent)
 		if err != nil {
 			log.Error(err)
 		}
 	}
+
+	if flags.Seed {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		go distributor.Serve(ctx)
+
+		signalChan := make(chan os.Signal, 1)
+		cleanupDone := make(chan bool)
+		signal.Notify(signalChan, os.Interrupt)
+		go func() {
+			for _ = range signalChan {
+				log.Info("\nReceived an interrupt, closing connection...\n\n")
+				err := distributor.Shutdown()
+				if err != nil {
+					log.Fatalf("error while shutting down distributor: %s", err)
+				}
+				cleanupDone <- true
+			}
+		}()
+		<-cleanupDone
+	}
+
+	if flags.Clean {
+		err = distributor.Cleanup()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 }
