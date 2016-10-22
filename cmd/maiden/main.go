@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net"
 	"os"
 
@@ -68,9 +69,15 @@ func main() {
 		}).Fatal("failed to create DHT distributor")
 	}
 	if flags.Share != "" {
-		err = distributor.ShareImage(flags.Share)
+		_, err = distributor.ShareImage(flags.Share)
 		if err != nil {
 			log.Error(err)
+		}
+
+		if flags.Seed {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			distributor.Serve(ctx)
 		}
 	}
 
