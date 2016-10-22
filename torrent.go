@@ -107,6 +107,13 @@ func (d *DefaultDistributor) addTorrent(name, arg string) error {
 		t.DownloadAll()
 
 		d.mutex.Lock()
+
+		// checking whether there was existing torrent with the same name
+		existing, ok := d.active[name]
+		if ok {
+			existing.Drop()
+		}
+		// after drop - replacing it
 		d.active[name] = t
 		d.mutex.Unlock()
 	}()
