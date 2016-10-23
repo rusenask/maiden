@@ -126,52 +126,6 @@ func (d *DefaultDistributor) addTorrent(name, arg string) error {
 	return nil
 }
 
-// func (d *DefaultDistributor) addTorrents(torrents []string) error {
-// 	// starting progress barr
-// 	uiprogress.Start()
-// 	for _, arg := range torrents {
-// 		err := d.addTorrent(arg)
-// 		if err != nil {
-// 			log.WithFields(log.Fields{
-// 				"error":   err,
-// 				"torrent": arg,
-// 			}).Error("failed to add torrent")
-// 		}
-// 	}
-
-// 	if d.tClinet.WaitAll() {
-// 		log.Print("downloaded ALL the torrents")
-// 	} else {
-// 		log.Error("y u no complete torrents?!")
-// 	}
-
-// 	return nil
-// }
-
-// func (d *DefaultDistributor) seed(ctx context.Context) {
-// 	for {
-// 		select {
-// 		case <-ctx.Done():
-// 			log.Info("controller failure monitor quiting...")
-// 			// done, unsubscribing
-// 			d.tClinet.Close()
-// 		}
-// 	}
-
-// 	// signalChan := make(chan os.Signal, 1)
-// 	// cleanupDone := make(chan bool)
-// 	// signal.Notify(signalChan, os.Interrupt)
-// 	// go func() {
-// 	// 	for _ = range signalChan {
-// 	// 		log.Info("\nReceived an interrupt, closing connection...\n\n")
-// 	// 		d.tClinet.Close()
-
-// 	// 		cleanupDone <- true
-// 	// 	}
-// 	// }()
-// 	// <-cleanupDone
-// }
-
 func torrentBar(t *torrent.Torrent) {
 	bar := uiprogress.AddBar(1)
 	bar.AppendCompleted()
