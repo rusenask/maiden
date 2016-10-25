@@ -4,15 +4,12 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"golang.org/x/time/rate"
-	// "os"
-	// "os/exec"
-	// "os/signal"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/dustin/go-humanize"
-	"github.com/gosuri/uiprogress"
+	// "github.com/dustin/go-humanize"
+	// "github.com/gosuri/uiprogress"
 
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
@@ -63,7 +60,7 @@ func (d *DefaultDistributor) getTorrentClient() (*torrent.Client, error) {
 
 // AddTorrent - adds given torrent for download/seeding
 func (d *DefaultDistributor) addTorrent(name, arg string) error {
-	uiprogress.Start()
+	// uiprogress.Start()
 	t, err := func() (*torrent.Torrent, error) {
 		if strings.HasPrefix(arg, "magnet:") {
 			t, err := d.tClinet.AddMagnet(arg)
@@ -92,7 +89,9 @@ func (d *DefaultDistributor) addTorrent(name, arg string) error {
 		return err
 	}
 
-	torrentBar(t)
+	// starting to check torrent info
+	go torrentInfo(t)
+
 	t.AddPeers(func() (ret []torrent.Peer) {
 		for _, ta := range d.cfg.Peers {
 			ret = append(ret, torrent.Peer{
@@ -126,38 +125,54 @@ func (d *DefaultDistributor) addTorrent(name, arg string) error {
 	return nil
 }
 
-func torrentBar(t *torrent.Torrent) {
-	bar := uiprogress.AddBar(1)
-	bar.AppendCompleted()
-	bar.AppendFunc(func(*uiprogress.Bar) (ret string) {
+func torrentInfo(t *torrent.Torrent) {
+	for _ = range time.Tick(5 * time.Second) {
 		select {
 		case <-t.GotInfo():
-		default:
-			return "getting info"
+			if t.BytesCompleted() == t.Info().TotalLength() {
+				log.WithFields(log.Fields{
+					"name": t.Name(),
+				}).Info("completed")
+				// sucess, stop tracking
+				return
+			}
 		}
-		if t.Seeding() {
-			return "seeding"
-		} else if t.BytesCompleted() == t.Info().TotalLength() {
-			return "completed"
-		} else {
-			return fmt.Sprintf("downloading (%s/%s)", humanize.Bytes(uint64(t.BytesCompleted())), humanize.Bytes(uint64(t.Info().TotalLength())))
-		}
-	})
-	bar.PrependFunc(func(*uiprogress.Bar) string {
-		return t.Name()
-	})
-	go func() {
-		<-t.GotInfo()
-		tl := int(t.Info().TotalLength())
-		if tl == 0 {
-			bar.Set(1)
-			return
-		}
-		bar.Total = tl
-		for {
-			bc := t.BytesCompleted()
-			bar.Set(int(bc))
-			time.Sleep(time.Second)
-		}
-	}()
+
+	}
 }
+
+// func _torrentBar(t *torrent.Torrent) {
+// 	bar := uiprogress.AddBar(1)
+// 	bar.AppendCompleted()
+// 	bar.AppendFunc(func(*uiprogress.Bar) (ret string) {
+// 		select {
+// 		case <-t.GotInfo():
+// 		default:
+// 			return "getting info"
+// 		}
+// 		if t.Seeding() {
+// 			return "seeding"
+// 		} else if t.BytesCompleted() == t.Info().TotalLength() {
+// 			return "completed"
+// 		} else {
+// 			return fmt.Sprintf("downloading (%s/%s)", humanize.Bytes(uint64(t.BytesCompleted())), humanize.Bytes(uint64(t.Info().TotalLength())))
+// 		}
+// 	})
+// 	bar.PrependFunc(func(*uiprogress.Bar) string {
+// 		return t.Name()
+// 	})
+// 	go func() {
+// 		<-t.GotInfo()
+// 		tl := int(t.Info().TotalLength())
+// 		if tl == 0 {
+// 			bar.Set(1)
+// 			return
+// 		}
+// 		bar.Total = tl
+// 		for {
+// 			bc := t.BytesCompleted()
+// 			bar.Set(int(bc))
+// 			time.Sleep(time.Second)
+// 		}
+// 	}()
+// }

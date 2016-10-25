@@ -154,8 +154,18 @@ func (d *DefaultDistributor) PullImage(name string, torrent []byte) error {
 	return nil
 }
 
+func (d *DefaultDistributor) inspectImage(name string) error {
+	_, err := d.dClient.InspectImage(name)
+	return err
+}
+
 // ShareImage - start sharing specified image
 func (d *DefaultDistributor) ShareImage(name string) (torrent []byte, err error) {
+	err = d.inspectImage(name)
+	if err != nil {
+		return []byte(""), fmt.Errorf("failed to inspect image, error: %s", err)
+	}
+
 	filename := generateImageName(name)
 	err = d.exportImage(name, filename)
 	if err != nil {
