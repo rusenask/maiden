@@ -213,14 +213,14 @@ func (d *DefaultDistributor) cleanup(name string) error {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"file": filename,
-		}).Warn("cleanup: failed to remove torrent file")
+		}).Debug("cleanup: failed to remove torrent file")
 	}
 
 	err = RemoveContents(filename)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"file": filename,
-		}).Warn("cleanup: failed to cleanup torrent contents")
+		}).Debug("cleanup: failed to cleanup torrent contents")
 	}
 
 	// removing directory as well
@@ -228,7 +228,7 @@ func (d *DefaultDistributor) cleanup(name string) error {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"file": filename,
-		}).Warn("cleanup: failed to delete dir")
+		}).Debug("cleanup: failed to delete dir")
 	}
 
 	return nil
