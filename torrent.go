@@ -56,15 +56,16 @@ func (d *DefaultDistributor) getTorrentClient() (*torrent.Client, error) {
 
 // AddTorrent - adds given torrent for download/seeding
 func (d *DefaultDistributor) addTorrent(name, arg string) error {
-	// uiprogress.Start()
 	t, err := func() (*torrent.Torrent, error) {
 		if strings.HasPrefix(arg, "magnet:") {
+			// adding from magned
 			t, err := d.tClinet.AddMagnet(arg)
 			if err != nil {
-				log.Fatalf("error adding magnet: %s", err)
+				return nil, fmt.Errorf("error adding magnet: %s", err)
 			}
 			return t, nil
 		} else {
+			// loading from file
 			metaInfo, err := metainfo.LoadFromFile(arg)
 			if err != nil {
 				log.WithFields(log.Fields{
