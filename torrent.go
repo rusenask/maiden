@@ -8,9 +8,6 @@ import (
 	"strings"
 	"time"
 
-	// "github.com/dustin/go-humanize"
-	// "github.com/gosuri/uiprogress"
-
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
@@ -37,7 +34,6 @@ func (d *DefaultDistributor) getTorrentClient() (*torrent.Client, error) {
 	var clientConfig torrent.Config
 	if d.cfg.MMap {
 		clientConfig.DefaultStorage = storage.NewMMap("")
-		// clientConfig.DefaultStorage = storage.NewBoltDB(ImageDownloadPath)
 	}
 	if d.cfg.Addr != nil {
 		clientConfig.ListenAddr = d.cfg.Addr.String()
@@ -140,39 +136,3 @@ func torrentInfo(t *torrent.Torrent) {
 
 	}
 }
-
-// func _torrentBar(t *torrent.Torrent) {
-// 	bar := uiprogress.AddBar(1)
-// 	bar.AppendCompleted()
-// 	bar.AppendFunc(func(*uiprogress.Bar) (ret string) {
-// 		select {
-// 		case <-t.GotInfo():
-// 		default:
-// 			return "getting info"
-// 		}
-// 		if t.Seeding() {
-// 			return "seeding"
-// 		} else if t.BytesCompleted() == t.Info().TotalLength() {
-// 			return "completed"
-// 		} else {
-// 			return fmt.Sprintf("downloading (%s/%s)", humanize.Bytes(uint64(t.BytesCompleted())), humanize.Bytes(uint64(t.Info().TotalLength())))
-// 		}
-// 	})
-// 	bar.PrependFunc(func(*uiprogress.Bar) string {
-// 		return t.Name()
-// 	})
-// 	go func() {
-// 		<-t.GotInfo()
-// 		tl := int(t.Info().TotalLength())
-// 		if tl == 0 {
-// 			bar.Set(1)
-// 			return
-// 		}
-// 		bar.Total = tl
-// 		for {
-// 			bc := t.BytesCompleted()
-// 			bar.Set(int(bc))
-// 			time.Sleep(time.Second)
-// 		}
-// 	}()
-// }
